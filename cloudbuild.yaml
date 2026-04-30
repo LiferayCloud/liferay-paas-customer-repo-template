@@ -1,11 +1,13 @@
 steps:
-  - name: 'gcr.io/cloud-builders/git'
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk:slim'
     entrypoint: 'bash'
     args:
       - '-c'
       - |
         url=$$(git config --get remote.origin.url | sed -e 's|git@github.com:|https://github.com/|' -e 's|\.git$$||')
-        echo "{\"git_commit_url\":\"$${url}/commit/$COMMIT_SHA\"}"
+        gcloud logging write build-commit-metadata \
+          "{\"git_commit_url\":\"$${url}/commit/$COMMIT_SHA\",\"build_id\":\"$BUILD_ID\"}" \
+          --payload-type=json
     id: 'log-commit-url'
   - name: 'gradle:8.5-jdk21'
     entrypoint: 'bash'
@@ -46,4 +48,3 @@ options:
   logging: CLOUD_LOGGING_ONLY
 substitutions:
   _OVERLAY_BUCKET: ''
-
