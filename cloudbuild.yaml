@@ -1,0 +1,49 @@
+steps:
+  - name: 'gcr.io/cloud-builders/git'
+    entrypoint: 'bash'
+    args:
+      - '-c'
+      - |
+        url=$$(git config --get remote.origin.url | sed -e 's|git@github.com:|https://github.com/|' -e 's|\.git$$||')
+        echo "{\"git_commit_url\":\"$${url}/commit/$COMMIT_SHA\"}"
+    id: 'log-commit-url'
+  - name: 'gradle:8.5-jdk21'
+    entrypoint: 'bash'
+    args:
+      - '-c'
+      - |
+        ./gradlew deploy \
+          --no-daemon \
+          --project-prop liferay.workspace.home.dir=cloudbuild-tmp/
+    id: 'build-artifacts-with-gradle'
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+    entrypoint: 'bash'
+    env:
+      - 'OVERLAY_BUCKET=${_OVERLAY_BUCKET}'
+    args:
+      - '-x'
+      - '-c'
+      - |
+        if [ -z "$$OVERLAY_BUCKET" ]
+        then
+          echo "OVERLAY_BUCKET is not set. Pass --substitutions=_OVERLAY_BUCKET=<bucket> or export OVERLAY_BUCKET in the build environment."
+          exit 1
+        fi
+
+        if [ -d "cloudbuild-tmp" ]
+        then
+          gcloud storage cp \
+            --recursive \
+            cloudbuild-tmp/* \
+            gs://$$OVERLAY_BUCKET/$BUILD_ID/
+        else
+          echo "Directory cloudbuild-tmp not found. Skipping upload."
+
+          exit 1
+        fi
+    id: 'upload-to-gcs'
+options:
+  logging: CLOUD_LOGGING_ONLY
+substitutions:
+  _OVERLAY_BUCKET: ''
+
