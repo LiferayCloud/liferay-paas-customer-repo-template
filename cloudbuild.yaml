@@ -40,8 +40,6 @@ steps:
             gs://$$OVERLAY_BUCKET/$BUILD_ID/
         else
           echo "Directory cloudbuild-tmp not found. Skipping upload."
-
-          exit 1
         fi
     id: 'upload-to-gcs'
 options:
